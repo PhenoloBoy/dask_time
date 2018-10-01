@@ -1,20 +1,27 @@
 from dask.distributed import Client, as_completed
 import xarray as xr
 import numpy as np
-import nodata
 import pandas as pd
-import re
+import time
 
 
-def read(path):
-    return xr.open_rasterio(path)
+def cleaner(pixel, **kwargs):
+
+    cube = kwargs['cube']
+    ts = cube[dict([('x', pixel[0]), ('y', pixel[1])])].to_series().astype(float)
+    ts += 5
+
+    time.sleep(0.2)
+
+    return ts, pixel
 
 
 def main():
-    dataset = read(r'c:\temp\chianti.img')
 
-    timedom = pd.to_datetime(re.findall(r'\d\d\d\d\d\d\d\d', dataset.attrs['band_names']))
-    cube = dataset.assign_coords(band=timedom)
+    times = pd.date_range('2000-01-01', periods=100)
+    x = range(30)
+    y = range(30)
+    cube = xr.DataArray(np.random.rand(len(times), len(x), len(y)), coords=[times, x, y], dims=['time', 'x', 'y'])
 
     x = int(cube.sizes['x'])
     y = int(cube.sizes['y'])
@@ -22,24 +29,20 @@ def main():
     pixels_pairs = np.indices((x, y)).transpose((1, 2, 0)).reshape((x * y, 2))
 
     client = Client()
+    print('Client ready')
 
-    print('Start futures creation')
-    futures = client.map(nodata.cleaner, pixels_pairs, cube=cube)
+    futures = client.map(cleaner, pixels_pairs, cube=cube)
     print('End future creation')
-    import webbrowser
 
-    url = 'http://localhost:8787'
-    webbrowser.open_new(url)
+    # import webbrowser
+    # url = 'http://localhost:8787/status'
+    # webbrowser.open_new(url)
 
-    for batch in as_completed(futures, with_results=True).batches():
-        for future, result in batch:
-            ts, pixel = result
-            try:
-                cube[dict([('x', pixel[0]), ('y', pixel[1])])] = ts
-                cube.to_netcdf(r'c:\temp\test.nc')
-            except (RuntimeError,):
-                print('error')
+    for future, result in as_completed(futures, with_results=True):
+        ts, pixel = result
+        cube[dict([('x', pixel[0]), ('y', pixel[1])])] = ts
 
+    print(cube)
+    print('Done!')
 
-if __name__ is '__main__':
-    main()
+    client.close()
