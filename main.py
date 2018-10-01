@@ -34,9 +34,9 @@ def main():
     futures = client.map(cleaner, pixels_pairs, cube=cube)
     print('End future creation')
 
-    import webbrowser
-    url = 'http://localhost:8787/status'
-    webbrowser.open_new(url)
+    # import webbrowser
+    # url = 'http://localhost:8787/status'
+    # webbrowser.open_new(url)
 
     for future, result in as_completed(futures, with_results=True):
         ts, pixel = result
