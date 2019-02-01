@@ -1,10 +1,12 @@
 from dask.distributed import Client, as_completed
+import dask
 import xarray as xr
 import numpy as np
 import pandas as pd
 import webbrowser
 import multiprocessing
 from pympler import asizeof
+import gc
 
 
 def function(chunk, **kwargs):
@@ -21,6 +23,7 @@ def function(chunk, **kwargs):
             ts += multiplier    # fake algorithm
             chunk_out[:, i[1]] = ts
             del ts
+            gc.collect()
     except:
         pass
 
@@ -38,12 +41,14 @@ def main():
     pixels_pairs = np.argwhere(cube.isel(time=0).values)
 
     # Client
-    client = Client(processes=False, n_workers=4, threads_per_worker=1)
+    client = Client() # processes=False, n_workers=4, threads_per_worker=1
+    dask.config.set()
+
     url = 'http://localhost:8787/status'
     webbrowser.open_new(url)
 
     for x in cube.x:
-        row = cube.isel(dict([('x', x.values)]))
+        row = cube.isel(dict([('x', x.values)])).persist()
         print(asizeof.asizeof(row)/1e6)
 
         px_list = [x for x in pixels_pairs if x[1] == 1]
@@ -56,6 +61,7 @@ def main():
         for future, result in as_completed(futures, with_results=True):
             output_carrier.update(result)
             del future, result
+            gc.collect()
 
         cube[x] = np.expand_dims(output_carrier.transpose().values, axis=0)
 
