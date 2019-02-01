@@ -15,12 +15,17 @@ def function(chunk, **kwargs):
 
     chunk_out = pd.DataFrame(index=rowi.time, columns=pd.DataFrame(chunk)[1])
 
-    i = None
     try:
         for i in chunk:
             ts = rowi.isel(dict([('y', i[1])])).to_series().astype(float)
-            ts += multiplier    # fake algorithm
+
+            # ----- fake algorithm -----
+
+            ts += multiplier
             chunk_out[:, i[1]] = ts
+
+            # ----- fake algorithm -----
+
             del ts
             gc.collect()
     except:
@@ -32,23 +37,23 @@ def function(chunk, **kwargs):
 def main():
 
     # Data creation
-    times = pd.date_range('2000-01-01', periods=100) # to stress more the system just increase the period value
+    times = pd.date_range('2000-01-01', periods=200) # to stress more the system just increase the period value
     x = range(3)
     y = range(int(14e4))
     cube = xr.DataArray(np.random.rand(len(times), len(x), len(y)), coords=[times, x, y], dims=['time', 'x', 'y'])
     pixels_pairs = np.argwhere(cube.isel(time=0).values)
 
     # Client
-    client = Client() # processes=False, n_workers=4, threads_per_worker=1
+    client = Client(processes=False, n_workers=1, threads_per_worker=1)
     dask.config.set()
 
     url = 'http://localhost:8787/status'
     webbrowser.open_new(url)
 
-    for x in cube.x:
-        row = cube.isel(dict([('x', x.values)])).persist()
+    for row_idx in cube.x.values:
+        row = cube.isel(dict([('x', row_idx)])).persist()
 
-        px_list = [x for x in pixels_pairs if x[1] == 1]
+        px_list = [ith for ith in pixels_pairs if ith[0] == row_idx]
         output_carrier = pd.DataFrame(index=cube.time, columns=cube.y)
 
         chunks = np.array_split(px_list, multiprocessing.cpu_count()*4)
