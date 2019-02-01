@@ -22,7 +22,7 @@ def function(chunk, **kwargs):
             # ----- fake algorithm -----
 
             ts += multiplier
-            chunk_out[:, i[1]] = ts
+            chunk_out[i[1]] = ts
 
             # ----- fake algorithm -----
 
@@ -37,9 +37,9 @@ def function(chunk, **kwargs):
 def main():
 
     # Data creation
-    times = pd.date_range('2000-01-01', periods=200) # to stress more the system just increase the period value
+    times = pd.date_range('2000-01-01', periods=10) # to stress more the system just increase the period value
     x = range(3)
-    y = range(int(14e4))
+    y = range(int(14e1))
     cube = xr.DataArray(np.random.rand(len(times), len(x), len(y)), coords=[times, x, y], dims=['time', 'x', 'y'])
     pixels_pairs = np.argwhere(cube.isel(time=0).values)
 
@@ -65,7 +65,9 @@ def main():
             del future, result
             gc.collect()
 
-        cube[x] = np.expand_dims(output_carrier.transpose().values, axis=0)
+        cube[:, row_idx] = output_carrier.values
+
+        # np.expand_dims(output_carrier.values, axis=0)
 
     print(cube)
     client.close()
