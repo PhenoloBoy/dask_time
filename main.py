@@ -45,12 +45,12 @@ def main():
     cube = xr.DataArray(np.random.rand(len(times), len(x), len(y)), coords=[times, x, y], dims=['time', 'x', 'y'])
     pixels_pairs = np.argwhere(cube.isel(time=0).values)
 
-    # Client
+    Client
     # client = Client(processes=False, n_workers=1, threads_per_worker=1)
-    # client = Client()
+    client = Client()
 
-    # url = 'http://localhost:8787/status'
-    # webbrowser.open_new(url)
+    url = 'http://localhost:8787/status'
+    webbrowser.open_new(url)
 
     for row_idx in cube.x.values:
         row = cube.isel(dict([('x', row_idx)]))
@@ -59,11 +59,12 @@ def main():
 
         output_carrier = pd.DataFrame(index=cube.time.values, columns=cube.y.values)
 
-        chunks = np.array_split(px_list, multiprocessing.cpu_count())
-
-        result = [delayed(function)(chunk, data=row, parameter=10)for chunk in chunks]
+        chunks = np.array_split(px_list, multiprocessing.cpu_count()*4)
+        rowi = client.scatter(row)
+        result = [delayed(function)(chunk, data=rowi, parameter=10)for chunk in chunks]
 
         out = dask.compute(result)
+        print('done')
 
         for xi in out[0]:
             output_carrier.update(xi)
