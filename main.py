@@ -58,7 +58,9 @@ def main():
         px_list = [ith for ith in pixels_pairs if ith[0] == row_idx]
         output_carrier = pd.DataFrame(index=cube.time.values, columns=cube.y.values)
 
-        a = [delayed(function)(px, parameter=10)for px in px_list]
+        chunks = np.array_split(px_list, multiprocessing.cpu_count() * 4)
+
+        a = [delayed(function)(chunk, parameter=10)for chunk in chunks]
 
         dd.from_delayed(*a)
 
