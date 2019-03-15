@@ -1,11 +1,14 @@
+from dask.delayed import delayed
 from dask.distributed import Client, as_completed
 import xarray as xr
 import numpy as np
 import pandas as pd
 import webbrowser
 import multiprocessing
+import dask.dataframe as dd
 
 
+@delayed
 def function(chunk, **kwargs):
 
     rowi = kwargs.pop('data', '')
@@ -43,11 +46,11 @@ def main():
     pixels_pairs = np.argwhere(cube.isel(time=0).values)
 
     # Client
-    client = Client(processes=False, n_workers=1, threads_per_worker=1)
+    # client = Client(processes=False, n_workers=1, threads_per_worker=1)
     # client = Client()
 
-    url = 'http://localhost:8787/status'
-    webbrowser.open_new(url)
+    # url = 'http://localhost:8787/status'
+    # webbrowser.open_new(url)
 
     for row_idx in cube.x.values:
         row = cube.isel(dict([('x', row_idx)]))
@@ -55,17 +58,14 @@ def main():
         px_list = [ith for ith in pixels_pairs if ith[0] == row_idx]
         output_carrier = pd.DataFrame(index=cube.time.values, columns=cube.y.values)
 
-        chunks = np.array_split(px_list, multiprocessing.cpu_count()*4)
-        rowi = client.scatter(row, broadcast=True)
-        futures = client.map(function, chunks, **{'data': rowi, 'parameter': 10})
+        a = [delayed(function)(px, parameter=10)for px in px_list]
 
-        for future, result in as_completed(futures, with_results=True):
-            output_carrier.update(result)
+        dd.from_delayed(*a)
 
         cube[:, row_idx] = output_carrier.values
 
     print(cube)
-    client.close()
+    # client.close()
 
 
 if __name__ == '__main__':
