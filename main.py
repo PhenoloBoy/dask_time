@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import webbrowser
 import multiprocessing
-import dask.dataframe as dd
+import dask
 
 
 @delayed
@@ -25,9 +25,9 @@ def function(chunk, **kwargs):
             ts += parameter
             chunk_out[i[1]] = ts
 
-            c = 0
-            for g in range(int(1e5)):
-                c += 1
+            # c = 0
+            # for g in range(int(1e5)):
+            #     c += 1
             # ----- substitute algorithm -----
 
     except Exception:
@@ -39,9 +39,9 @@ def function(chunk, **kwargs):
 def main():
 
     # Data creation
-    times = pd.date_range('2000-01-01', periods=300) # to stress more the system just increase the period value
+    times = pd.date_range('2000-01-01', periods=800) # to stress more the system just increase the period value
     x = range(1)
-    y = range(int(14e3))
+    y = range(int(14e4))
     cube = xr.DataArray(np.random.rand(len(times), len(x), len(y)), coords=[times, x, y], dims=['time', 'x', 'y'])
     pixels_pairs = np.argwhere(cube.isel(time=0).values)
 
@@ -56,13 +56,17 @@ def main():
         row = cube.isel(dict([('x', row_idx)]))
 
         px_list = [ith for ith in pixels_pairs if ith[0] == row_idx]
+
         output_carrier = pd.DataFrame(index=cube.time.values, columns=cube.y.values)
 
-        chunks = np.array_split(px_list, multiprocessing.cpu_count() * 4)
+        chunks = np.array_split(px_list, multiprocessing.cpu_count())
 
-        a = [delayed(function)(chunk, parameter=10)for chunk in chunks]
+        result = [delayed(function)(chunk, data=row, parameter=10)for chunk in chunks]
 
-        dd.from_delayed(*a)
+        out = dask.compute(result)
+
+        for xi in out[0]:
+            output_carrier.update(xi)
 
         cube[:, row_idx] = output_carrier.values
 
