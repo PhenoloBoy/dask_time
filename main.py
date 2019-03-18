@@ -1,3 +1,6 @@
+import sys
+import time
+
 from dask.delayed import delayed
 from dask.distributed import Client, as_completed
 import xarray as xr
@@ -25,13 +28,15 @@ def function(chunk, **kwargs):
             ts += parameter
             chunk_out[i[1]] = ts
 
-            # c = 0
-            # for g in range(int(1e5)):
-            #     c += 1
+            c = 0
+            for g in range(int(1e1)):
+                c += 1
             # ----- substitute algorithm -----
 
     except Exception:
         pass
+
+    # ridx =
 
     return chunk_out
 
@@ -39,13 +44,13 @@ def function(chunk, **kwargs):
 def main():
 
     # Data creation
-    times = pd.date_range('2000-01-01', periods=800) # to stress more the system just increase the period value
-    x = range(1)
+    times = pd.date_range('2000-01-01', periods=600)  # to stress more the system just increase the period value
+    x = range(5)
     y = range(int(14e4))
     cube = xr.DataArray(np.random.rand(len(times), len(x), len(y)), coords=[times, x, y], dims=['time', 'x', 'y'])
     pixels_pairs = np.argwhere(cube.isel(time=0).values)
 
-    Client
+    # Client
     # client = Client(processes=False, n_workers=1, threads_per_worker=1)
     client = Client()
 
@@ -64,10 +69,18 @@ def main():
         result = [delayed(function)(chunk, data=rowi, parameter=10)for chunk in chunks]
 
         out = dask.compute(result)
-        print('done')
+        print('calculation done')
 
         for xi in out[0]:
-            output_carrier.update(xi)
+            start = time.time()
+
+            # output_carrier.update(xi)
+            # print(f'update in {time.time()-start} ')
+
+            start2 = time.time()
+            output_carrier.iloc[:, xi.columns[0]:xi.columns[-1]] = xi
+
+            print(f'select and update in {time.time() - start2} ')
 
         cube[:, row_idx] = output_carrier.values
 
