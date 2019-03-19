@@ -29,29 +29,28 @@ def function(chunk, **kwargs):
             chunk_out[i[1]] = ts
 
             c = 0
-            for g in range(int(1e1)):
+            for g in range(int(1e5)):
                 c += 1
             # ----- substitute algorithm -----
 
     except Exception:
         pass
-
-    # ridx =
-
     return chunk_out
 
 
 @dask.delayed
-def updater(bit, container):
-    container.iloc[:, bit.columns[0]:bit.columns[-1]] = bit
+def updater(bits, container):
+    for ith in bits:
+        container.iloc[:, ith.columns.min():ith.columns.max()+1] = ith
     return container
+
 
 def main():
 
     # Data creation
-    times = pd.date_range('2000-01-01', periods=100)  # to stress more the system just increase the period value
-    x = range(5)
-    y = range(int(14e2))
+    times = pd.date_range('2000-01-01', periods=300)  # to stress more the system just increase the period value
+    x = range(1)
+    y = range(int(14e4))
     cube = xr.DataArray(np.random.rand(len(times), len(x), len(y)), coords=[times, x, y], dims=['time', 'x', 'y'])
     pixels_pairs = np.argwhere(cube.isel(time=0).values)
 
@@ -68,20 +67,20 @@ def main():
         px_list = [ith for ith in pixels_pairs if ith[0] == row_idx]
 
         output_carrier = pd.DataFrame(index=cube.time.values, columns=cube.y.values)
+        otp_crr_s = client.scatter(output_carrier)
 
         chunks = np.array_split(px_list, multiprocessing.cpu_count()*5)
-
         rowi = client.scatter(row)
         result = [delayed(function)(chunk, data=rowi, parameter=0)for chunk in chunks]
-        update =
-        dask.compute(result)
+        filled_carrier = dask.delayed(updater)(result, otp_crr_s)
+        results = dask.compute(filled_carrier)
 
         print('calculation done')
 
-        cube[:, row_idx] = output_carrier.values
+        cube[:, row_idx] = results[0].values
 
-    print(cube)
-    # client.close()
+    print(cube.isel(x=2, y=1399))
+    client.close()
 
 
 if __name__ == '__main__':
