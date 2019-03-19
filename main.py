@@ -11,7 +11,7 @@ import multiprocessing
 import dask
 
 
-@delayed
+@dask.delayed
 def function(chunk, **kwargs):
 
     rowi = kwargs.pop('data', '')
@@ -25,7 +25,7 @@ def function(chunk, **kwargs):
 
             # ----- substitute algorithm -----
 
-            ts += parameter
+            ts += parameter + i[1]
             chunk_out[i[1]] = ts
 
             c = 0
@@ -41,12 +41,17 @@ def function(chunk, **kwargs):
     return chunk_out
 
 
+@dask.delayed
+def updater(bit, container):
+    container.iloc[:, bit.columns[0]:bit.columns[-1]] = bit
+    return container
+
 def main():
 
     # Data creation
-    times = pd.date_range('2000-01-01', periods=600)  # to stress more the system just increase the period value
+    times = pd.date_range('2000-01-01', periods=100)  # to stress more the system just increase the period value
     x = range(5)
-    y = range(int(14e4))
+    y = range(int(14e2))
     cube = xr.DataArray(np.random.rand(len(times), len(x), len(y)), coords=[times, x, y], dims=['time', 'x', 'y'])
     pixels_pairs = np.argwhere(cube.isel(time=0).values)
 
@@ -64,23 +69,14 @@ def main():
 
         output_carrier = pd.DataFrame(index=cube.time.values, columns=cube.y.values)
 
-        chunks = np.array_split(px_list, multiprocessing.cpu_count()*4)
+        chunks = np.array_split(px_list, multiprocessing.cpu_count()*5)
+
         rowi = client.scatter(row)
-        result = [delayed(function)(chunk, data=rowi, parameter=10)for chunk in chunks]
+        result = [delayed(function)(chunk, data=rowi, parameter=0)for chunk in chunks]
+        update =
+        dask.compute(result)
 
-        out = dask.compute(result)
         print('calculation done')
-
-        for xi in out[0]:
-            start = time.time()
-
-            # output_carrier.update(xi)
-            # print(f'update in {time.time()-start} ')
-
-            start2 = time.time()
-            output_carrier.iloc[:, xi.columns[0]:xi.columns[-1]] = xi
-
-            print(f'select and update in {time.time() - start2} ')
 
         cube[:, row_idx] = output_carrier.values
 
