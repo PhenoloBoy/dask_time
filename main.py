@@ -50,7 +50,7 @@ def main():
     # Data creation
     times = pd.date_range('2000-01-01', periods=300)  # to stress more the system just increase the period value
     x = range(1)
-    y = range(int(14e4))
+    y = range(int(14e3))
     cube = xr.DataArray(np.random.rand(len(times), len(x), len(y)), coords=[times, x, y], dims=['time', 'x', 'y'])
     pixels_pairs = np.argwhere(cube.isel(time=0).values)
 
